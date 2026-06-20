@@ -4,7 +4,7 @@ An interactive 3D heart animation powered by **Three.js** and **MediaPipe hand t
 
 🔗 **Live Demo:** [zahraaabidha.github.io/heart-blast](https://zahraaabidha.github.io/heart-blast/)
 
-![Heart Blast Preview](https://zahraaabidha.github.io/heart-blast/preview.png)
+![Heart Blast Preview](preview.png)
 
 ---
 
