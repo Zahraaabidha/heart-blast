@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heart Blast</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+    body, html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #050008;
+        font-family: 'Inter', sans-serif;
+    }
+    #canvas-container {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+        position: relative;
+    }
+    #video {
+        display: none;
+    }
+    #hand-canvas {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 200px;
+        height: 150px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        z-index: 200;
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        transition: box-shadow 0.4s ease, border-color 0.4s ease;
+    }
+    #hand-canvas.active {
+        border-color: rgba(255, 130, 180, 0.6);
+        box-shadow: 0 0 22px rgba(255, 90, 150, 0.35);
+    }
+    .ui-panel {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 15px 20px;
+        border-radius: 14px;
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+        transition: all 0.3s ease;
+    }
+    .ui-panel h3 {
+        margin: 0 0 12px 0;
+        font-weight: 700;
+        color: #fff;
+        text-shadow: 0 0 8px rgba(255, 120, 170, 0.6);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+        padding-bottom: 8px;
+    }
+
+    /* Left UI column (info + controls) */
+    #ui-left {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        width: 250px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        pointer-events: none;
+    }
+    #ui-left::-webkit-scrollbar { width: 6px; }
+    #ui-left::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+    #info { pointer-events: none; }
+    .gesture-hint {
+        margin: 8px 0;
+        opacity: 0.9;
+        font-size: 14px;
+        text-shadow: 0 0 4px rgba(255, 150, 190, 0.4);
+    }
+    .gesture-hint kbd {
+        display: inline-block;
+        padding: 3px 6px;
+        font-family: 'Inter', sans-serif;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        font-size: 13px;
+        margin-right: 8px;
+    }
+    .hint-note {
+        margin-top: 10px;
+        font-size: 12px;
+        opacity: 0.65;
+        line-height: 1.4;
+    }
+
+    /* Controls panel */
+    #controls { pointer-events: auto; }
+    .btn {
+        width: 100%;
+        cursor: pointer;
+        pointer-events: auto;
+        color: #fff;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 14px;
+        padding: 11px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: linear-gradient(135deg, rgba(255, 70, 130, 0.35), rgba(255, 150, 190, 0.22));
+        transition: all 0.2s ease;
+    }
+    .btn:hover {
+        background: linear-gradient(135deg, rgba(255, 70, 130, 0.55), rgba(255, 150, 190, 0.4));
+        transform: translateY(-1px);
+        box-shadow: 0 0 18px rgba(255, 90, 150, 0.5);
+    }
+    .btn:active { transform: translateY(0) scale(0.98); }
+
+    .control-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.7;
+        margin: 14px 0 6px;
+    }
+    .theme-row { display: flex; gap: 8px; }
+    .swatch {
+        flex: 1;
+        height: 30px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        cursor: pointer;
+        pointer-events: auto;
+        padding: 0;
+        transition: all 0.2s ease;
+    }
+    .swatch:hover { transform: translateY(-2px); }
+    .swatch.active {
+        border-color: #fff;
+        box-shadow: 0 0 14px rgba(255, 255, 255, 0.7);
+    }
+
+    .control-row {
+        margin: 10px 0;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .control-row.toggle { cursor: pointer; pointer-events: auto; user-select: none; }
+    .control-row input[type=range] { flex: 1; pointer-events: auto; accent-color: #ff5a96; }
+    .control-row input[type=checkbox] { pointer-events: auto; width: 16px; height: 16px; accent-color: #ff5a96; }
+    .control-row .slabel { width: 44px; opacity: 0.9; }
+
+    #gesture-status {
+        position: absolute;
+        bottom: 25px;
+        left: 50%;
+        z-index: 100;
+        pointer-events: none;
+        font-size: 18px;
+        font-weight: bold;
+        text-shadow: 0 0 10px #ff5a96, 0 0 20px #ff5a96;
+        padding: 12px 25px;
+        border-radius: 50px;
+        opacity: 0;
+        transform: translate(-50%, 20px);
+        transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    #gesture-status.visible {
+        opacity: 1;
+        transform: translateX(-50%);
+    }
+
+    @media (max-width: 768px) {
+        #ui-left { width: 200px; }
+        #hand-canvas { width: 120px; height: 90px; }
+    }
+</style>
+</head>
+<body>
+    <div id="ui-left">
+        <div id="info" class="ui-panel">
+            <h3>Heart Blast</h3>
+            <div class="gesture-hint"><kbd>&#9994;</kbd> Fist: Trigger Heart Blast</div>
+            <div class="gesture-hint"><kbd>&#128588;</kbd> Two Hands: Move Heart</div>
+            <div class="hint-note">No webcam? Use the buttons below, press <b>Space</b>, or click the heart.</div>
+        </div>
+
+        <div id="controls" class="ui-panel">
+            <h3>Options</h3>
+            <button id="pulse-btn" class="btn">&#128156; Send Heart Blast</button>
+
+            <div class="control-label">Theme</div>
+            <div class="theme-row" id="theme-row"></div>
+
+            <label class="control-row toggle"><input type="checkbox" id="heartbeat-cb" checked> Heartbeat</label>
+            <label class="control-row toggle"><input type="checkbox" id="autospin-cb"> Auto-spin</label>
+            <label class="control-row toggle"><input type="checkbox" id="autopulse-cb"> Auto blast</label>
+
+            <div class="control-label">Glow</div>
+            <div class="control-row"><span class="slabel">Glow</span><input type="range" id="glow-range" min="0" max="3" step="0.05" value="1.7"></div>
+            <div class="control-row"><span class="slabel">Size</span><input type="range" id="size-range" min="0.5" max="2" step="0.05" value="1"></div>
+        </div>
+    </div>
+
+    <div id="gesture-status" class="ui-panel">&#10084;</div>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="hand-canvas" width="200" height="150"></canvas>
+    <div id="canvas-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.162.0/three.module.min.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
+
+        let scene, camera, renderer, composer, bloomPass;
+        let nebula, heartGroup, heartCore, heartAura, loveDust;
+        let time = 0;
+        let flareLines = [];
+        let flareEndpoints = [];
+        let heartBurstRings = [];
+        let pulse = { active: false, progress: 1.0, strength: 0 };
+        let hands, camera_hands;
+
+        const gestureStatusEl = document.getElementById('gesture-status');
+        const handCanvasEl = document.getElementById('hand-canvas');
+
+        let currentGesture = 'none';
+        let lastGestureTime = 0;
+        const gestureDebounce = 500; // ms
+        let previousHandPositions = [];
+        let isManualRotating = false;
+
+        // ---- Options state ----
+        let baseSize = 1.0;
+        let autoSpin = false;
+        let heartbeatOn = true;
+        let autoPulseOn = false;
+        let lastAutoPulse = 0;
+
+        const HEART_SCALE = 1.6;   // size of the heart core
+        const FLARE_SCALE = 4.2;   // size of the heart-shaped blast outline
+
+        // ---- Love themes ----
+        const themes = [
+            { name:"Romance",     color1:0x2A0A1E, color2:0xFF1B6B, line:0xFF6FA5, core:0xFFFFFF, dust:0xFF8FB1, swatch:"linear-gradient(135deg,#FF1B6B,#FFC0D6)" },
+            { name:"Passion",     color1:0x3A0606, color2:0xFF2D00, line:0xFFB347, core:0xFFF0E0, dust:0xFF7A3C, swatch:"linear-gradient(135deg,#FF2D00,#FFB347)" },
+            { name:"Sweetheart",  color1:0x2D0633, color2:0xFF49C0, line:0xFFC0F0, core:0xFFFFFF, dust:0xFFA6E9, swatch:"linear-gradient(135deg,#FF49C0,#FFD6F4)" },
+            { name:"Galaxy Love", color1:0x14093E, color2:0x9B2BFF, line:0x59C2FF, core:0xFFFFFF, dust:0x8FA8FF, swatch:"linear-gradient(135deg,#9B2BFF,#59C2FF)" },
+        ];
+        let activeTheme = 0;
+        const palette = {
+            color1: new THREE.Color(themes[0].color1),
+            color2: new THREE.Color(themes[0].color2),
+            line:   new THREE.Color(themes[0].line),
+            core:   new THREE.Color(themes[0].core),
+            dust:   new THREE.Color(themes[0].dust),
+        };
+
+        const noiseFunction = `
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+            float snoise(vec3 v) {
+                const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+                const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+                vec3 i = floor(v + dot(v, C.yyy));
+                vec3 x0 = v - i + dot(i, C.xxx);
+                vec3 g = step(x0.yzx, x0.xyz);
+                vec3 l = 1.0 - g;
+                vec3 i1 = min( g.xyz, l.zxy );
+                vec3 i2 = max( g.xyz, l.zxy );
+                vec3 x1 = x0 - i1 + C.xxx;
+                vec3 x2 = x0 - i2 + C.yyy;
+                vec3 x3 = x0 - D.yyy;
+                i = mod289(i);
+                vec4 p = permute( permute( i.z + vec4(0.0, i1.z, i2.z, 1.0 )) + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) + i.x + vec4(0.0, i1.x, i2.x, 1.0 );
+                float n_ = 0.142857142857;
+                vec3 ns = n_ * D.wyz - D.xzx;
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                vec4 x_ = floor(j * ns.z);
+                vec4 y_ = floor(j - 7.0 * x_);
+                vec4 x = x_ *ns.x + ns.yyyy;
+                vec4 y = y_ *ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+                vec4 b0 = vec4( x.xy, y.xy );
+                vec4 b1 = vec4( x.zw, y.zw );
+                vec4 s0 = floor(b0)*2.0 + 1.0;
+                vec4 s1 = floor(b1)*2.0 + 1.0;
+                vec4 sh = -step(h, vec4(0.0));
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+                vec3 p0 = vec3(a0.xy,h.x);
+                vec3 p1 = vec3(a0.zw,h.y);
+                vec3 p2 = vec3(a1.xy,h.z);
+                vec3 p3 = vec3(a1.zw,h.w);
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+                p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                m = m * m;
+                return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+            }`;
+
+        init();
+
+        function init() {
+            initScene();
+            initPostProcessing();
+            createNebula();
+            createHeartCore();
+            createFlareNetwork();
+            createHeartBurst();
+            createLoveDust();
+            buildOptionsUI();
+            applyTheme(0);
+            initMediaPipe();
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        function initScene() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 0, 120);
+            camera.lookAt(scene.position);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // Click the scene to blast (great for no-webcam / mobile)
+            renderer.domElement.addEventListener('pointerdown', triggerPulse);
+        }
+
+        function initPostProcessing() {
+            composer = new EffectComposer(renderer);
+            composer.addPass(new RenderPass(scene, camera));
+            bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.7, 0.7, 0.1);
+            composer.addPass(bloomPass);
+            const afterimagePass = new AfterimagePass(0.92);
+            composer.addPass(afterimagePass);
+        }
+
+        function createNebula() {
+            const vertexShader = `
+                varying vec3 vWorldPosition;
+                void main() {
+                    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                    vWorldPosition = worldPosition.xyz;
+                    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+                }`;
+            const fragmentShader = `
+                uniform vec3 color1;
+                uniform vec3 color2;
+                uniform float time;
+                varying vec3 vWorldPosition;
+                ${noiseFunction}
+                void main() {
+                    float f = 0.0;
+                    vec3 p = vWorldPosition * 0.01;
+                    f += 0.50 * snoise(p + time * 0.1);
+                    f += 0.25 * snoise(p * 2.0 + time * 0.2);
+                    f += 0.125 * snoise(p * 5.0 + time * 0.4);
+                    f = pow(f, 2.0);
+                    vec3 color = mix(color1, color2, smoothstep(0.0, 1.0, f));
+                    gl_FragColor = vec4(color, f * 0.6);
+                }`;
+
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    color1: { value: palette.color1 },
+                    color2: { value: palette.color2 },
+                },
+                vertexShader, fragmentShader,
+                transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending,
+            });
+            nebula = new THREE.Mesh(new THREE.SphereGeometry(1000, 64, 64), material);
+            scene.add(nebula);
+        }
+
+        // Parametric heart curve (point at bottom, lobes at top), bounding-box centered, scaled.
+        function heartCurvePoints(steps, scale) {
+            const raw = [];
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (let i = 0; i < steps; i++) {
+                const t = (i / steps) * Math.PI * 2;
+                const x = 16 * Math.pow(Math.sin(t), 3);
+                const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                raw.push([x, y]);
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (y < minY) minY = y; if (y > maxY) maxY = y;
+            }
+            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+            return raw.map(([x, y]) => new THREE.Vector2((x - cx) * scale, (y - cy) * scale));
+        }
+
+        function createHeartShape(scale) {
+            const pts = heartCurvePoints(160, scale);
+            const shape = new THREE.Shape();
+            shape.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
+            shape.closePath();
+            return shape;
+        }
+
+        function createHeartCore() {
+            heartGroup = new THREE.Group();
+            scene.add(heartGroup);
+
+            const heartShape = createHeartShape(HEART_SCALE);
+            const extrudeSettings = { depth: 8, bevelEnabled: true, bevelSegments: 2, steps: 2, bevelSize: 1, bevelThickness: 1 };
+            const geometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+            geometry.center();
+
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    pulse: { value: 0 },
+                    color: { value: palette.core }
+                },
+                vertexShader: `
+                    uniform float time;
+                    uniform float pulse;
+                    varying float vNoise;
+                    ${noiseFunction}
+                    void main() {
+                        float displacement = snoise(position * 0.1 + time * 0.5) * 3.0;
+                        displacement += snoise(position * 0.5 + time) * 1.5;
+                        vNoise = snoise(position * 2.0 + time * 2.0);
+                        vec3 newPosition = position + normal * (displacement + vNoise * (2.0 + pulse * 8.0));
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+                    }`,
+                fragmentShader: `
+                    uniform float pulse;
+                    uniform vec3 color;
+                    varying float vNoise;
+                    void main() {
+                        float intensity = pow(0.6 - abs(vNoise), 2.0);
+                        gl_FragColor = vec4(color, 1.0) * intensity + vec4(1.0, 1.0, 1.0, 1.0) * pulse * intensity * 2.0;
+                    }`,
+                transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+            });
+            heartCore = new THREE.Mesh(geometry, material);
+            heartGroup.add(heartCore);
+
+            const auraMaterial = new THREE.MeshBasicMaterial({
+                color: palette.line,
+                transparent: true,
+                opacity: 0.22,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                depthWrite: false
+            });
+            heartAura = new THREE.Mesh(geometry, auraMaterial);
+            heartAura.scale.set(1.2, 1.2, 1.2);
+            heartGroup.add(heartAura);
+        }
+
+        function createFlareNetwork() {
+            // Blast beams shoot to points along a big heart outline -> heart-shaped blast.
+            const NUM_ENDPOINTS = 28;
+            const outline = heartCurvePoints(NUM_ENDPOINTS, FLARE_SCALE);
+            outline.forEach(p => {
+                const z = (Math.random() - 0.5) * 18;
+                flareEndpoints.push(new THREE.Vector3(p.x, p.y, z));
+            });
+
+            const lineMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    pulse: { value: 0 },
+                    color: { value: palette.line }
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }`,
+                fragmentShader: `
+                    uniform float pulse;
+                    uniform vec3 color;
+                    varying vec2 vUv;
+                    void main() {
+                        float intensity1 = pow(1.0 - abs(vUv.x - pulse), 30.0);
+                        float intensity2 = pow(1.0 - abs(vUv.x - pulse * 1.3), 20.0) * 0.4;
+                        float totalIntensity = intensity1 + intensity2;
+                        vec3 fireColor = mix(color, vec3(1.0, 1.0, 1.0), intensity1 * 1.5);
+                        gl_FragColor = vec4(fireColor, totalIntensity * 3.5);
+                    }`,
+                transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+            });
+
+            flareEndpoints.forEach(endPoint => {
+                const mid = new THREE.Vector3().lerpVectors(new THREE.Vector3(0, 0, 0), endPoint, 0.5)
+                    .add(new THREE.Vector3((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16));
+                const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, 0, 0), mid, endPoint);
+                const geometry = new THREE.TubeGeometry(curve, 32, 0.2, 8, false);
+                const line = new THREE.Mesh(geometry, lineMaterial.clone());
+                line.visible = false;
+                flareLines.push(line);
+                heartGroup.add(line);
+            });
+        }
+
+        function createHeartBurst() {
+            // Expanding heart-shaped shockwave rings.
+            const pts2d = heartCurvePoints(160, HEART_SCALE);
+            const pts3d = pts2d.map(p => new THREE.Vector3(p.x, p.y, 0));
+            pts3d.push(pts3d[0].clone()); // close the loop
+            const geo = new THREE.BufferGeometry().setFromPoints(pts3d);
+
+            for (let r = 0; r < 3; r++) {
+                const mat = new THREE.LineBasicMaterial({
+                    color: palette.line,
+                    transparent: true,
+                    opacity: 0,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                const ring = new THREE.Line(geo, mat);
+                ring.visible = false;
+                heartBurstRings.push(ring);
+                heartGroup.add(ring);
+            }
+        }
+
+        function createLoveDust() {
+            const dustGeo = new THREE.BufferGeometry();
+            const vertices = [];
+            const outerBoundary = 250;
+            const innerBoundary = 30;
+
+            for (let i = 0; i < 1200; i++) {
+                const p = new THREE.Vector3(
+                    (Math.random() - 0.5),
+                    (Math.random() - 0.5),
+                    (Math.random() - 0.5)
+                ).normalize().multiplyScalar(innerBoundary + Math.random() * (outerBoundary - innerBoundary));
+                vertices.push(p.x, p.y, p.z);
+            }
+            dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const dustMat = new THREE.PointsMaterial({
+                size: 0.8,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                depthWrite: false,
+                color: palette.dust
+            });
+            loveDust = new THREE.Points(dustGeo, dustMat);
+            scene.add(loveDust);
+        }
+
+        // ---------- Options UI ----------
+        function buildOptionsUI() {
+            const themeRow = document.getElementById('theme-row');
+            themes.forEach((t, i) => {
+                const b = document.createElement('button');
+                b.className = 'swatch';
+                b.style.background = t.swatch;
+                b.title = t.name;
+                b.addEventListener('click', () => applyTheme(i));
+                themeRow.appendChild(b);
+            });
+
+            document.getElementById('pulse-btn').addEventListener('click', triggerPulse);
+
+            document.getElementById('heartbeat-cb').addEventListener('change', e => heartbeatOn = e.target.checked);
+            document.getElementById('autospin-cb').addEventListener('change', e => {
+                autoSpin = e.target.checked;
+                if (!autoSpin) heartGroup.rotation.set(0, 0, 0);
+            });
+            document.getElementById('autopulse-cb').addEventListener('change', e => autoPulseOn = e.target.checked);
+
+            document.getElementById('glow-range').addEventListener('input', e => bloomPass.strength = parseFloat(e.target.value));
+            document.getElementById('size-range').addEventListener('input', e => baseSize = parseFloat(e.target.value));
+
+            window.addEventListener('keydown', e => {
+                if (e.code === 'Space') { e.preventDefault(); triggerPulse(); }
+            });
+        }
+
+        function applyTheme(i) {
+            activeTheme = i;
+            const t = themes[i];
+            palette.color1.setHex(t.color1);
+            palette.color2.setHex(t.color2);
+            palette.line.setHex(t.line);
+            palette.core.setHex(t.core);
+            palette.dust.setHex(t.dust);
+
+            nebula.material.uniforms.color1.value.setHex(t.color1);
+            nebula.material.uniforms.color2.value.setHex(t.color2);
+            heartCore.material.uniforms.color.value.setHex(t.core);
+            heartAura.material.color.setHex(t.line);
+            flareLines.forEach(l => l.material.uniforms.color.value.setHex(t.line));
+            heartBurstRings.forEach(r => r.material.color.setHex(t.line));
+            loveDust.material.color.setHex(t.dust);
+
+            document.querySelectorAll('.swatch').forEach((s, idx) => s.classList.toggle('active', idx === i));
+        }
+
+        // ---------- MediaPipe (optional) ----------
+        function initMediaPipe() {
+            try {
+                const videoElement = document.getElementById('video');
+                const handCtx = handCanvasEl.getContext('2d');
+                if (typeof Hands === 'undefined' || typeof Camera === 'undefined') {
+                    handCanvasEl.style.display = 'none';
+                    return;
+                }
+                hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+                hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+                hands.onResults((results) => onHandResults(results, handCtx));
+                camera_hands = new Camera(videoElement, {
+                    onFrame: async () => await hands.send({ image: videoElement }),
+                    width: 640, height: 480
+                });
+                camera_hands.start().catch(() => { handCanvasEl.style.display = 'none'; });
+            } catch (err) {
+                // No camera / blocked -> controls still work fine.
+                handCanvasEl.style.display = 'none';
+            }
+        }
+
+        function onHandResults(results, ctx) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            let newGesture = 'none';
+            handCanvasEl.classList.remove('active');
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                handCanvasEl.classList.add('active');
+                results.multiHandLandmarks.forEach((landmarks, i) => {
+                    const color = i === 0 ? 'rgba(255, 110, 165, 0.9)' : 'rgba(89, 194, 255, 0.9)';
+                    drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: color, lineWidth: 3 });
+                    drawLandmarks(ctx, landmarks, { color: '#ffffff', lineWidth: 1, radius: 3 });
+                });
+
+                let isFistDetected = false;
+                for (const landmarks of results.multiHandLandmarks) {
+                    if (recognizeSingleHandGesture(landmarks) === 'fist') { isFistDetected = true; break; }
+                }
+
+                if (isFistDetected) {
+                    const currentTime = Date.now();
+                    if (currentTime - lastGestureTime > gestureDebounce) {
+                        triggerPulse();
+                        lastGestureTime = currentTime;
+                    }
+                }
+
+                if (results.multiHandLandmarks.length === 2) {
+                    handleTwoHandNavigation(results.multiHandLandmarks);
+                    newGesture = 'two_hands';
+                } else if (results.multiHandLandmarks.length === 1) {
+                    isManualRotating = false;
+                    newGesture = recognizeSingleHandGesture(results.multiHandLandmarks[0]);
+                }
+
+                if (isFistDetected) newGesture = 'fist';
+            } else {
+                isManualRotating = false;
+            }
+            handleGesture(newGesture);
+        }
+
+        function recognizeSingleHandGesture(landmarks) {
+            const indexTip = landmarks[8], indexPIP = landmarks[6];
+            const middleTip = landmarks[12], middlePIP = landmarks[10];
+            const ringTip = landmarks[16], ringPIP = landmarks[14];
+            const pinkyTip = landmarks[20], pinkyPIP = landmarks[18];
+            const allFingersCurled = indexTip.y > indexPIP.y && middleTip.y > middlePIP.y && ringTip.y > ringPIP.y && pinkyTip.y > pinkyPIP.y;
+            return allFingersCurled ? 'fist' : 'none';
+        }
+
+        function handleGesture(gesture) {
+            gestureStatusEl.classList.add('visible');
+            if (gesture !== currentGesture) currentGesture = gesture;
+
+            let statusText = 'No Hands Detected';
+            if (gesture === 'fist') statusText = 'Heart Blast! \u{1F495}';
+            else if (gesture === 'two_hands') statusText = 'Moving Heart';
+            else if (gesture !== 'none') statusText = 'Hand Detected';
+
+            if (gesture === 'none') gestureStatusEl.classList.remove('visible');
+            gestureStatusEl.textContent = statusText;
+        }
+
+        function handleTwoHandNavigation(handsLandmarks) {
+            const hand1Center = handsLandmarks[0][0];
+            const hand2Center = handsLandmarks[1][0];
+            const currentPositions = [{ x: hand1Center.x, y: hand1Center.y }, { x: hand2Center.x, y: hand2Center.y }];
+
+            if (previousHandPositions.length === 2) {
+                const prevCenter = { x: (previousHandPositions[0].x + previousHandPositions[1].x) / 2, y: (previousHandPositions[0].y + previousHandPositions[1].y) / 2 };
+                const currentCenter = { x: (currentPositions[0].x + currentPositions[1].x) / 2, y: (currentPositions[0].y + currentPositions[1].y) / 2 };
+
+                const deltaX = currentCenter.x - prevCenter.x;
+                const deltaY = currentCenter.y - prevCenter.y;
+                const moveSensitivity = 150;
+
+                if (Math.abs(deltaX) > 0.001 || Math.abs(deltaY) > 0.001) {
+                    isManualRotating = true;
+                    heartGroup.position.x += deltaX * moveSensitivity;
+                    heartGroup.position.y -= deltaY * moveSensitivity;
+                }
+            }
+            previousHandPositions = currentPositions;
+        }
+
+        function triggerPulse() {
+            if (!pulse.active) {
+                pulse.active = true;
+                pulse.progress = 0;
+            }
+        }
+
+        // Lub-dub heartbeat curve (0..~1)
+        function heartbeatCurve(t) {
+            const period = 1.4;
+            const p = (t % period) / period;
+            const lub = Math.exp(-Math.pow((p - 0.10) / 0.055, 2));
+            const dub = Math.exp(-Math.pow((p - 0.28) / 0.055, 2)) * 0.6;
+            return lub + dub;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            nebula.material.uniforms.time.value = time;
+
+            // Auto blast on a rhythm
+            if (autoPulseOn && time - lastAutoPulse > 1.4) {
+                triggerPulse();
+                lastAutoPulse = time;
+            }
+
+            if (pulse.active) {
+                pulse.progress += 0.02;
+                if (pulse.progress >= 1.0) {
+                    pulse.active = false;
+                    pulse.progress = 1.0;
+                }
+            }
+            pulse.strength = Math.sin(pulse.progress * Math.PI);
+
+            heartCore.material.uniforms.time.value = time;
+            heartCore.material.uniforms.pulse.value = pulse.strength;
+
+            // Beam flares (heart-shaped spray)
+            flareLines.forEach(line => {
+                line.visible = pulse.active;
+                if (line.visible) line.material.uniforms.pulse.value = pulse.progress;
+            });
+
+            // Expanding heart shockwave rings
+            heartBurstRings.forEach((ring, idx) => {
+                if (pulse.active) {
+                    const local = pulse.progress * 1.3 - idx * 0.16;
+                    if (local <= 0 || local >= 1) {
+                        ring.visible = false;
+                    } else {
+                        ring.visible = true;
+                        ring.scale.setScalar(1 + local * 4.2);
+                        ring.material.opacity = (1 - local) * 0.9;
+                    }
+                } else {
+                    ring.visible = false;
+                }
+            });
+
+            // Heartbeat + pulse scaling
+            let beat = 0;
+            if (heartbeatOn) beat += heartbeatCurve(time) * 0.07;
+            beat += pulse.strength * 0.12;
+            heartGroup.scale.setScalar(baseSize * (1 + beat));
+
+            // Auto-spin
+            if (autoSpin) heartGroup.rotation.y += 0.012;
+
+            // Drifting love dust
+            const positions = loveDust.geometry.attributes.position;
+            const corePos = heartGroup.position;
+            const outerBoundary = 250;
+            const innerBoundary = 25;
+            for (let i = 0; i < positions.count; i++) {
+                const p = new THREE.Vector3().fromBufferAttribute(positions, i);
+                let direction = p.clone().sub(corePos).normalize();
+                p.add(direction.multiplyScalar(0.1 + Math.random() * 0.2));
+                if (p.distanceTo(corePos) > outerBoundary) {
+                    const resetVector = new THREE.Vector3(
+                        (Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5)
+                    ).normalize().multiplyScalar(innerBoundary + Math.random() * 10);
+                    p.copy(corePos).add(resetVector);
+                }
+                positions.setXYZ(i, p.x, p.y, p.z);
+            }
+            positions.needsUpdate = true;
+
+            composer.render();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
