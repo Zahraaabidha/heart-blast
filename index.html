@@ -212,10 +212,18 @@
             <div class="control-label">Glow</div>
             <div class="control-row"><span class="slabel">Glow</span><input type="range" id="glow-range" min="0" max="3" step="0.05" value="1.7"></div>
             <div class="control-row"><span class="slabel">Size</span><input type="range" id="size-range" min="0.5" max="2" step="0.05" value="1"></div>
+
+            <div class="control-label">Music</div>
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+                <button id="music-toggle-btn" class="btn" style="flex:1;">&#9654; Play</button>
+                <button id="music-mute-btn" class="btn" style="width:44px;padding:11px 0;">&#128266;</button>
+            </div>
+            <div class="control-row"><span class="slabel">Vol</span><input type="range" id="music-vol" min="0" max="1" step="0.02" value="0.5"></div>
         </div>
     </div>
 
     <div id="gesture-status" class="ui-panel">&#10084;</div>
+    <audio id="bg-audio" src="bg_music.mp3" loop></audio>
     <video id="video" autoplay playsinline muted></video>
     <canvas id="hand-canvas" width="200" height="150"></canvas>
     <div id="canvas-container"></div>
@@ -608,6 +616,37 @@
 
             window.addEventListener('keydown', e => {
                 if (e.code === 'Space') { e.preventDefault(); triggerPulse(); }
+            });
+
+            // Music controls
+            const audio = document.getElementById('bg-audio');
+            const toggleBtn = document.getElementById('music-toggle-btn');
+            const muteBtn = document.getElementById('music-mute-btn');
+            const volSlider = document.getElementById('music-vol');
+
+            audio.volume = parseFloat(volSlider.value);
+
+            toggleBtn.addEventListener('click', () => {
+                if (audio.paused) {
+                    audio.play();
+                    toggleBtn.innerHTML = '&#9646;&#9646; Pause';
+                } else {
+                    audio.pause();
+                    toggleBtn.innerHTML = '&#9654; Play';
+                }
+            });
+
+            muteBtn.addEventListener('click', () => {
+                audio.muted = !audio.muted;
+                muteBtn.innerHTML = audio.muted ? '&#128263;' : '&#128266;';
+            });
+
+            volSlider.addEventListener('input', e => {
+                audio.volume = parseFloat(e.target.value);
+                if (audio.muted && audio.volume > 0) {
+                    audio.muted = false;
+                    muteBtn.innerHTML = '&#128266;';
+                }
             });
         }
 
